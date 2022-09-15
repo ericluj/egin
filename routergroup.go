@@ -1,5 +1,7 @@
 package egin
 
+import "net/http"
+
 type IRouter interface {
 	IRoutes
 	Group(string, ...HandlerFunc) *RouterGroup
@@ -28,18 +30,34 @@ func (group *RouterGroup) Use(middleware ...HandlerFunc) IRoutes {
 	return group.returnObj()
 }
 
+func (group *RouterGroup) handle(httpMethod, relativePath string, handlers HandlersChain) IRoutes {
+	absolutePath := group.calculateAbsolutePath(relativePath)
+	handlers = group.combineHandlers(handlers)
+	group.engine.addRoute(httpMethod, absolutePath, handlers)
+	return group.returnObj()
+}
+
+func (group *RouterGroup) GET(relativePath string, handlers ...HandlerFunc) IRoutes {
+	return group.handle(http.MethodGet, relativePath, handlers)
+}
+
+func (group *RouterGroup) combineHandlers(handlers HandlersChain) HandlersChain {
+	finalSize := len(group.Handlers) + len(handlers)
+	assert1(finalSize < int(abortIndex), "too many handlers")
+	mergedHandlers := make(HandlersChain, finalSize)
+	copy(mergedHandlers, group.Handlers)
+	copy(mergedHandlers[len(group.Handlers):], handlers)
+	return mergedHandlers
+}
+
+func (group *RouterGroup) calculateAbsolutePath(relativePath string) string {
+	return joinPaths(group.basePath, relativePath)
+}
+
 // 根节点返回engine，否则返回自身
 func (group *RouterGroup) returnObj() IRoutes {
 	if group.root {
 		return group.engine
 	}
 	return group
-}
-
-func (group *RouterGroup) handle(httpMethod, relativePath string, handlers HandlersChain) IRoutes {
-
-}
-
-func (group *RouterGroup) GET(relativePath string, handlers ...HandlerFunc) IRoutes {
-
 }

@@ -20,8 +20,7 @@ type Engine struct {
 	maxParams   uint16
 	maxSections uint16
 
-	// 不太了解的概念
-	UseH2C bool
+	UseH2C bool // TODO:
 }
 
 func New() *Engine {
@@ -34,7 +33,7 @@ func New() *Engine {
 		trees: make(methodTrees, 0, 9),
 	}
 	engine.RouterGroup.engine = engine
-	engine.pool.New = func() interface{} {
+	engine.pool.New = func() any {
 		return engine.allocateContext()
 	}
 	return engine
@@ -56,6 +55,45 @@ func (engine *Engine) allocateContext() *Context {
 	return &Context{engine: engine, params: &v, skippedNodes: &skippedNodes}
 }
 
-func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (engine *Engine) addRoute(method, path string, handlers HandlersChain) {
+	assert1(path[0] == '/', "path must begin with '/'")
+	assert1(method != "", "HTTP method can not be empty")
+	assert1(len(handlers) > 0, "there must be at least one handler")
 
+	root := engine.trees.get(method)
+	if root == nil {
+		root = new(node)
+		root.fullPath = "/"
+		engine.trees = append(engine.trees, methodTree{method: method, root: root})
+	}
+	root.addRoute(path, handlers)
+
+	if paramsCount := countParams(path); paramsCount > engine.maxParams {
+		engine.maxParams = paramsCount
+	}
+	if sectionsCount := countSections(path); sectionsCount > engine.maxSections {
+		engine.maxSections = sectionsCount
+	}
+}
+
+func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	c := engine.pool.Get().(*Context)
+	c.writermem.reset(w)
+	c.Request = req
+	c.reset()
+
+	engine.handleHTTPRequest(c)
+
+	engine.pool.Put(c)
+}
+
+func (engine *Engine) handleHTTPRequest(c *Context) {
+
+}
+
+// 阻塞直到error产生
+func (engine *Engine) Run(addr ...string) (err error) {
+	address := resolveAddress(addr)
+	err = http.ListenAndServe(address, engine.Handler())
+	return
 }
