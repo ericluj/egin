@@ -18,3 +18,7 @@ func (w *responseWriter) reset(writer http.ResponseWriter) {
 	w.size = noWritten
 	w.status = defaultStatus
 }
+
+func (w *responseWriter) WriteHeaderNow() {
+
+}

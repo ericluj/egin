@@ -28,13 +28,38 @@ func (trees methodTrees) get(method string) *node {
 	return nil
 }
 
+type nodeType uint8
+
+const (
+	root nodeType = iota + 1
+	param
+	catchAll
+)
+
 type node struct {
-	path     string
-	fullPath string
+	path      string
+	indices   string
+	wildChild bool
+	nType     nodeType
+	priority  uint32
+	children  []*node
+	handlers  HandlersChain
+	fullPath  string
 }
 
 func (n *node) addRoute(path string, handlers HandlersChain) {
 
+}
+
+type nodeValue struct {
+	handlers HandlersChain
+	params   *Params
+	tsr      bool
+	fullPath string
+}
+
+func (n *node) getValue(path string, params *Params, skippedNodes *[]skippedNode, unescape bool) (value nodeValue) {
+	return
 }
 
 type Param struct {

@@ -48,3 +48,7 @@ func (c *Context) reset() {
 	*c.params = (*c.params)[:0]
 	*c.skippedNodes = (*c.skippedNodes)[:0]
 }
+
+func (c *Context) Next() {
+
+}

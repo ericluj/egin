@@ -8,6 +8,11 @@ import (
 	"golang.org/x/net/http2/h2c"
 )
 
+var (
+	default404Body = []byte("404 page not found")
+	default405Body = []byte("405 method not allowed")
+)
+
 type HandlerFunc func(*Context)
 
 type HandlersChain []HandlerFunc
@@ -20,7 +25,12 @@ type Engine struct {
 	maxParams   uint16
 	maxSections uint16
 
-	UseH2C bool // TODO:
+	UseH2C                bool // TODO:
+	UseRawPath            bool
+	UnescapePathValues    bool
+	RemoveExtraSlash      bool
+	RedirectTrailingSlash bool
+	allNoRoute            HandlersChain
 }
 
 func New() *Engine {
@@ -88,6 +98,48 @@ func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (engine *Engine) handleHTTPRequest(c *Context) {
+	httpMethod := c.Request.Method
+	rPath := c.Request.URL.Path
+	unescape := false
+	if engine.UseRawPath && len(c.Request.URL.RawPath) > 0 {
+		rPath = c.Request.URL.RawPath
+		unescape = engine.UnescapePathValues
+	}
+
+	if engine.RemoveExtraSlash {
+		rPath = cleanPath(rPath)
+	}
+
+	t := engine.trees
+	for i := 0; i < len(t); i++ {
+		if t[i].method != httpMethod {
+			continue
+		}
+		root := t[i].root
+		value := root.getValue(rPath, c.params, c.skippedNodes, unescape)
+		if value.params != nil {
+			c.Params = *value.params
+		}
+		if value.handlers != nil {
+			c.handlers = value.handlers
+			c.fullPath = value.fullPath
+			c.Next()
+			c.writermem.WriteHeaderNow()
+			return
+		}
+		if httpMethod != http.MethodConnect && rPath != "/" {
+			// TODO:
+		}
+		break
+	}
+
+	// TODO:
+
+	c.handlers = engine.allNoRoute
+	serveError(c, http.StatusNotFound, default404Body)
+}
+
+func serveError(c *Context, code int, defaultMessage []byte) {
 
 }
 
